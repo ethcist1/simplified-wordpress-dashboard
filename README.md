@@ -13,7 +13,9 @@ are what you see first.
 
 It's purely cosmetic — you can switch back to the classic view anytime.
 
-<!-- ![Screenshot of the simplified dashboard](assets/screenshot.png) -->
+![All posts view](assets/screenshots/all%20posts.png)
+![Post with content](assets/screenshots/post%20with%20content.png)
+![Draft preview](assets/screenshots/draftpreview.png)
 
 A WordPress plugin that reskins wp-admin with a custom sidebar and
 replaces the default Posts list and post editor with a simplified,

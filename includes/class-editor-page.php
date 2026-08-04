@@ -96,18 +96,92 @@ class ED_Editor_Page {
 		}, get_users( array( 'capability' => array( 'edit_posts' ) ) ) );
 
 		wp_localize_script( 'ed-editor', 'edEditor', array(
-			'restUrl'       => esc_url_raw( rest_url( 'wp/v2' ) ),
-			'postsListUrl'  => admin_url( 'admin.php?page=' . ED_Posts_List_Page::SLUG ),
-			'postId'        => $post_id,
-			'currentUserId' => get_current_user_id(),
-			'canEditOthers' => current_user_can( 'edit_others_posts' ),
-			'categories'    => array_values( $categories ),
-			'authors'       => array_values( $authors ),
-			'yoastActive'   => defined( 'WPSEO_VERSION' ),
+			'restUrl'        => esc_url_raw( rest_url( 'wp/v2' ) ),
+			'postsListUrl'   => admin_url( 'admin.php?page=' . ED_Posts_List_Page::SLUG ),
+			'postId'         => $post_id,
+			'currentUserId'  => get_current_user_id(),
+			'canEditOthers'  => current_user_can( 'edit_others_posts' ),
+			'categories'     => array_values( $categories ),
+			'authors'        => array_values( $authors ),
+			'yoastActive'    => defined( 'WPSEO_VERSION' ),
+			'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+			'metaBoxNonce'   => wp_create_nonce( 'ed_meta_boxes' ),
 		) );
 	}
 
 	public static function render() {
 		echo '<div id="ed-editor-root"></div>';
+	}
+
+	/**
+	 * Renders the third-party meta boxes registered on the classic post edit
+	 * screen (ACF, plugin SEO/custom-field boxes, etc.) so they can be shown
+	 * inside "Additional settings". Their own JS is not guaranteed to run
+	 * here (see ajax_save_meta_boxes for the save side of this bridge).
+	 */
+	public static function ajax_render_meta_boxes() {
+		check_ajax_referer( 'ed_meta_boxes', 'nonce' );
+
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		$post    = $post_id ? get_post( $post_id ) : null;
+		if ( ! $post || $post->post_type !== 'post' || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_send_json_error( 'invalid_post', 403 );
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/template.php';
+		require_once ABSPATH . 'wp-admin/includes/screen.php';
+
+		set_current_screen( 'post' );
+		global $post_type, $post_type_object, $wp_meta_boxes;
+		$post_type        = 'post';
+		$post_type_object = get_post_type_object( 'post' );
+
+		do_action( 'add_meta_boxes', 'post', $post );
+		do_action( 'add_meta_boxes_post', $post );
+
+		foreach ( self::EXCLUDED_META_BOXES as $box_id ) {
+			remove_meta_box( $box_id, 'post', 'normal' );
+			remove_meta_box( $box_id, 'post', 'side' );
+			remove_meta_box( $box_id, 'post', 'advanced' );
+		}
+
+		ob_start();
+		do_meta_boxes( 'post', 'normal', $post );
+		do_meta_boxes( 'post', 'advanced', $post );
+		do_meta_boxes( 'post', 'side', $post );
+		$html = ob_get_clean();
+
+		$has_boxes = false;
+		if ( ! empty( $wp_meta_boxes['post'] ) ) {
+			foreach ( $wp_meta_boxes['post'] as $context_boxes ) {
+				foreach ( $context_boxes as $priority_boxes ) {
+					if ( ! empty( $priority_boxes ) ) { $has_boxes = true; break 2; }
+				}
+			}
+		}
+
+		wp_send_json_success( array( 'html' => $html, 'hasBoxes' => $has_boxes ) );
+	}
+
+	/**
+	 * Accepts the raw field values collected from the rendered meta boxes
+	 * and fires save_post so each plugin's own save handler (reading $_POST
+	 * the way it would from a classic post.php submit) picks them up. Fields
+	 * are only present in $_POST if the box that owns them was rendered, so
+	 * unrelated save_post callbacks that gate on their own nonce no-op here.
+	 */
+	public static function ajax_save_meta_boxes() {
+		check_ajax_referer( 'ed_meta_boxes', 'nonce' );
+
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		$post    = $post_id ? get_post( $post_id ) : null;
+		if ( ! $post || $post->post_type !== 'post' || ! current_user_can( 'edit_post', $post_id ) ) {
+			wp_send_json_error( 'invalid_post', 403 );
+		}
+
+		do_action( 'save_post', $post_id, $post, true );
+		do_action( 'save_post_post', $post_id, $post, true );
+
+		wp_send_json_success();
 	}
 }

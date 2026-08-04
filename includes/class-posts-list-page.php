@@ -43,10 +43,20 @@ class ED_Posts_List_Page {
 			true
 		);
 
+		$categories = array_map( function( $c ) {
+			return array( 'id' => $c->term_id, 'name' => $c->name );
+		}, get_categories( array( 'hide_empty' => false ) ) );
+
+		$authors = array_map( function( $u ) {
+			return array( 'id' => $u->ID, 'name' => $u->display_name );
+		}, get_users( array( 'capability' => array( 'edit_posts' ) ) ) );
+
 		wp_localize_script( 'ed-posts-list', 'edPostsList', array(
 			'restUrl'   => esc_url_raw( rest_url( 'wp/v2' ) ),
 			'editorUrl' => admin_url( 'admin.php?page=ed-editor' ),
 			'canEditOthers' => current_user_can( 'edit_others_posts' ),
+			'categories'    => array_values( $categories ),
+			'authors'       => array_values( $authors ),
 		) );
 	}
 

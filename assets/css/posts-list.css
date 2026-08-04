@@ -6,7 +6,9 @@
 .ed-posts-header .ed-btn { margin-left: auto; }
 
 .ed-posts-toolbar { display: flex; align-items: center; gap: var(--ed-space-3); margin-bottom: var(--ed-space-4); flex-wrap: wrap; }
-.ed-posts-toolbar .ed-input { max-width: 300px; }
+.ed-posts-toolbar .ed-input { max-width: 225px; }
+.ed-posts-toolbar select.ed-input { width: auto; max-width: 180px; }
+.ed-posts-trash-select { margin-left: auto; }
 
 .ed-post-row {
 	display: flex; align-items: center; gap: var(--ed-space-3); padding: var(--ed-space-3) var(--ed-space-2);

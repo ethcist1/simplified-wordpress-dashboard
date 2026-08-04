@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'ED_DASH_VERSION', '1.0.0' );
+define( 'ED_DASH_VERSION', '1.0.2' );
 define( 'ED_DASH_FILE', __FILE__ );
 define( 'ED_DASH_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ED_DASH_URL', plugin_dir_url( __FILE__ ) );

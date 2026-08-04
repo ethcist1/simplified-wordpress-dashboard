@@ -67,6 +67,10 @@
 .ed-btn-primary:active{background:var(--ed-accent-800);border-color:var(--ed-accent-800);}
 .ed-btn-secondary{border-color:var(--ed-divider);}
 .ed-btn-secondary:hover{background:var(--ed-surface-2);border-color:color-mix(in srgb, var(--ed-text) 45%, transparent);}
+.ed-btn-text{border-color:transparent;padding-left:var(--ed-space-2);padding-right:var(--ed-space-2);color:color-mix(in srgb, var(--ed-text) 65%, transparent);}
+.ed-btn-text:hover{color:var(--ed-text);background:transparent;}
+.ed-btn-text-danger{color:color-mix(in srgb, #c0392b 75%, var(--ed-text));}
+.ed-btn-text-danger:hover{color:#c0392b;}
 .ed-btn-icon{width:36px;height:36px;padding:0;}
 .ed-btn-block{width:100%;margin-top:var(--ed-space-2);}
 

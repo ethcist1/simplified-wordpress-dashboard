@@ -24,6 +24,7 @@ class ED_Admin_Shell {
 		if ( ! ED_View_Mode::is_modern() ) return;
 		wp_enqueue_style( 'ed-tokens', ED_DASH_URL . 'assets/css/tokens.css', array(), ED_DASH_VERSION );
 		wp_enqueue_style( 'ed-admin-shell', ED_DASH_URL . 'assets/css/admin-shell.css', array( 'ed-tokens' ), ED_DASH_VERSION );
+		wp_enqueue_script( 'ed-admin-shell', ED_DASH_URL . 'assets/js/admin-shell.js', array(), ED_DASH_VERSION, true );
 	}
 
 	/** Only redirect the default "post" list/editor — leave pages & CPTs on native screens. */
@@ -71,6 +72,13 @@ class ED_Admin_Shell {
 		$user  = wp_get_current_user();
 		$initials = self::initials( $user->display_name ? $user->display_name : $user->user_login );
 		?>
+		<div class="ed-mobile-bar">
+			<button type="button" id="ed-sidebar-toggle" class="ed-sidebar-toggle" aria-label="<?php esc_attr_e( 'Open menu', 'editorial-dashboard' ); ?>" aria-expanded="false" aria-controls="ed-sidebar">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+			</button>
+			<div class="ed-mobile-bar-brand"><?php echo esc_html( get_bloginfo( 'name' ) ); ?></div>
+		</div>
+		<div id="ed-sidebar-overlay"></div>
 		<div id="ed-sidebar">
 			<div class="ed-sidebar-brand"><?php echo esc_html( get_bloginfo( 'name' ) ); ?></div>
 
@@ -83,9 +91,6 @@ class ED_Admin_Shell {
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=ed-posts' ) ); ?>" class="ed-nav-link<?php echo ( $is( 'ed-posts' ) || $is( 'ed-editor' ) ) ? ' is-active' : ''; ?>">
 					<?php self::icon( 'posts' ); ?> Posts
 				</a>
-				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=page' ) ); ?>" class="ed-nav-link<?php echo $pagenow === 'edit.php' && $page === '' && ( isset( $_GET['post_type'] ) && $_GET['post_type'] === 'page' ) ? ' is-active' : ''; ?>">
-					<?php self::icon( 'pages' ); ?> Pages
-				</a>
 				<?php if ( get_post_types_by_support( 'comments' ) ) : ?>
 				<a href="<?php echo esc_url( admin_url( 'edit-comments.php' ) ); ?>" class="ed-nav-link<?php echo $is( 'edit-comments.php' ) ? ' is-active' : ''; ?>">
 					<?php self::icon( 'comments' ); ?> Comments
@@ -95,6 +100,9 @@ class ED_Admin_Shell {
 
 			<div class="ed-nav-group">
 				<div class="ed-nav-label">Design</div>
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=page' ) ); ?>" class="ed-nav-link<?php echo $pagenow === 'edit.php' && $page === '' && ( isset( $_GET['post_type'] ) && $_GET['post_type'] === 'page' ) ? ' is-active' : ''; ?>">
+					<?php self::icon( 'pages' ); ?> Pages
+				</a>
 				<a href="<?php echo esc_url( admin_url( 'nav-menus.php' ) ); ?>" class="ed-nav-link<?php echo $is( 'nav-menus.php' ) ? ' is-active' : ''; ?>">
 					<?php self::icon( 'menus' ); ?> Menus
 				</a>

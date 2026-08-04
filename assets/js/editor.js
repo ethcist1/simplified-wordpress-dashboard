@@ -129,6 +129,9 @@
 	}
 
 	const EDIT_ICON = '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>';
+	const EYE_ICON = '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>';
+	const COPY_ICON = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
+	const CHECK_ICON = '<polyline points="20 6 9 17 4 12"/>';
 
 	const BLOCK_ICONS = {
 		paragraph: '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/>',
@@ -141,14 +144,6 @@
 	};
 	const BLOCK_TYPES = [ 'paragraph', 'heading', 'image', 'list', 'quote', 'code', 'embed' ];
 	const BLOCK_LABELS = { paragraph: 'Paragraph', heading: 'Heading', image: 'Image', list: 'List', quote: 'Quote', code: 'Code', embed: 'Embed' };
-
-	const STATUS_OPTIONS = [
-		{ value: 'draft', label: 'Draft' },
-		{ value: 'pending', label: 'Pending Review' },
-		{ value: 'publish', label: 'Published' },
-		{ value: 'private', label: 'Private' },
-	];
-	const STATUS_SAVE_LABELS = { draft: 'Save Draft', pending: 'Submit for Review', publish: 'Publish', private: 'Save' };
 
 	function openMediaFrame( onSelect ) {
 		const frame = wp.media( { title: 'Select image', multiple: false, library: { type: 'image' } } );
@@ -190,7 +185,66 @@
 		);
 	}
 
-	function AdditionalSettings( { isOpen, onToggle, excerpt, onExcerptChange, slug, onSlugChange, yoastActive, metaTitle, onMetaTitleChange, metaDesc, onMetaDescChange, focusKw, onFocusKwChange } ) {
+	/* ---------- bridge for third-party meta boxes (ACF, other SEO plugins, etc.) ---------- */
+	function runInlineScripts( container ) {
+		Array.from( container.querySelectorAll( 'script' ) ).forEach( ( old ) => {
+			const fresh = document.createElement( 'script' );
+			Array.from( old.attributes ).forEach( ( attr ) => fresh.setAttribute( attr.name, attr.value ) );
+			fresh.text = old.text;
+			old.parentNode.replaceChild( fresh, old );
+		} );
+	}
+
+	function collectMetaBoxFields( container ) {
+		const data = {};
+		Array.from( container.querySelectorAll( 'input, select, textarea' ) ).forEach( ( el ) => {
+			if ( ! el.name ) return;
+			if ( ( el.type === 'checkbox' || el.type === 'radio' ) && ! el.checked ) return;
+			data[ el.name ] = el.value;
+		} );
+		return data;
+	}
+
+	function MetaBoxesBridge( { postId, registerCollector } ) {
+		const [ state, setState ] = useState( { loading: true, html: '', hasBoxes: false } );
+		const containerRef = useRef( null );
+
+		useEffect( () => {
+			if ( ! postId ) return;
+			fetch( edEditor.ajaxUrl, {
+				method: 'POST', credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams( { action: 'ed_render_meta_boxes', post_id: postId, nonce: edEditor.metaBoxNonce } ),
+			} )
+				.then( ( r ) => r.json() )
+				.then( ( res ) => setState( { loading: false, html: res.success ? res.data.html : '', hasBoxes: res.success && res.data.hasBoxes } ) )
+				.catch( () => setState( { loading: false, html: '', hasBoxes: false } ) );
+		}, [ postId ] );
+
+		useEffect( () => {
+			if ( containerRef.current && state.html ) {
+				containerRef.current.innerHTML = state.html;
+				runInlineScripts( containerRef.current );
+			}
+		}, [ state.html ] );
+
+		useEffect( () => {
+			registerCollector( () => ( containerRef.current ? collectMetaBoxFields( containerRef.current ) : null ) );
+			return () => registerCollector( null );
+		}, [] );
+
+		if ( ! postId ) return h( 'p', { className: 'ed-metaboxes-hint' }, 'Save the post to see settings from other plugins here.' );
+		if ( state.loading ) return h( 'p', { className: 'ed-metaboxes-hint' }, 'Loading…' );
+		if ( ! state.hasBoxes ) return null;
+
+		return h( Fragment, {},
+			h( 'div', { className: 'ed-hr' } ),
+			h( 'div', { className: 'ed-additional-settings-group-label' }, 'From other plugins' ),
+			h( 'div', { className: 'ed-metaboxes', ref: containerRef } )
+		);
+	}
+
+	function AdditionalSettings( { isOpen, onToggle, excerpt, onExcerptChange, slug, onSlugChange, yoastActive, metaTitle, onMetaTitleChange, metaDesc, onMetaDescChange, focusKw, onFocusKwChange, postId, registerCollector } ) {
 		return h( 'div', { className: 'ed-additional-settings' + ( isOpen ? ' is-open' : '' ) },
 			h( 'button', { type: 'button', className: 'ed-additional-settings-toggle', onClick: onToggle },
 				h( Icon, { path: '<polyline points="9 18 15 12 9 6"/>', size: 14 } ),
@@ -235,7 +289,8 @@
 							onChange: ( e ) => onFocusKwChange( e.target.value ),
 						} )
 					)
-				)
+				),
+				h( MetaBoxesBridge, { postId, registerCollector } )
 			)
 		);
 	}
@@ -283,7 +338,6 @@
 		const [ postId, setPostId ] = useState( initialPostId );
 		const [ title, setTitle ] = useState( '' );
 		const [ status, setStatus ] = useState( 'draft' );
-		const [ savedStatus, setSavedStatus ] = useState( 'draft' );
 		const [ date, setDate ] = useState( '' );
 		const [ categoryId, setCategoryId ] = useState( edEditor.categories[ 0 ] ? edEditor.categories[ 0 ].id : 0 );
 		const [ authorId, setAuthorId ] = useState( edEditor.currentUserId );
@@ -293,6 +347,8 @@
 		const [ blocks, setBlocks ] = useState( [ { id: nextId(), type: 'paragraph', text: '' } ] );
 		const [ openGap, setOpenGap ] = useState( null );
 		const [ saving, setSaving ] = useState( false );
+		const [ toast, setToast ] = useState( null );
+		const toastTimeoutRef = useRef( null );
 		const [ toolbar, setToolbar ] = useState( { visible: false, left: 0, top: 0 } );
 		const [ excerpt, setExcerpt ] = useState( '' );
 		const [ slug, setSlug ] = useState( '' );
@@ -301,13 +357,23 @@
 		const [ focusKw, setFocusKw ] = useState( '' );
 		const [ settingsOpen, setSettingsOpen ] = useState( false );
 		const contentRef = useRef( null );
+		const titleRef = useRef( null );
+		const titleMounted = useRef( false );
+		const metaBoxCollectorRef = useRef( null );
+		const registerCollector = useCallback( ( fn ) => { metaBoxCollectorRef.current = fn; }, [] );
+
+		useEffect( () => {
+			if ( ! titleMounted.current && titleRef.current ) {
+				titleRef.current.textContent = title;
+				titleMounted.current = true;
+			}
+		}, [ loading ] );
 
 		useEffect( () => {
 			if ( isNew ) return;
 			apiFetch( { path: '/wp/v2/posts/' + postId + '?context=edit&_embed=1' } ).then( ( post ) => {
 				setTitle( post.title.raw || '' );
 				setStatus( post.status );
-				setSavedStatus( post.status );
 				setDate( post.date ? post.date.slice( 0, 10 ) : '' );
 				if ( post.categories && post.categories.length ) setCategoryId( post.categories[ 0 ] );
 				if ( post.author ) setAuthorId( post.author );
@@ -378,21 +444,43 @@
 			return payload;
 		};
 
-		const save = ( overrideStatus ) => {
+		const saveMetaBoxFields = ( id ) => {
+			const collector = metaBoxCollectorRef.current;
+			const fields = collector && collector();
+			if ( ! fields ) return Promise.resolve();
+			const body = new URLSearchParams( Object.assign( { action: 'ed_save_meta_boxes', post_id: id, nonce: edEditor.metaBoxNonce }, fields ) );
+			return fetch( edEditor.ajaxUrl, {
+				method: 'POST', credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body,
+			} ).catch( () => {} );
+		};
+
+		const showToast = ( message, link ) => {
+			if ( toastTimeoutRef.current ) window.clearTimeout( toastTimeoutRef.current );
+			setToast( { message, link } );
+			toastTimeoutRef.current = window.setTimeout( () => setToast( null ), 6000 );
+		};
+
+		const save = ( overrideStatus, opts ) => {
+			opts = opts || {};
 			setSaving( true );
+			const wasPublished = status === 'publish';
 			const payload = buildPayload( overrideStatus );
 			const path = postId ? '/wp/v2/posts/' + postId : '/wp/v2/posts';
 			return apiFetch( { path, method: 'POST', data: payload } ).then( ( post ) => {
 				setSaving( false );
 				setStatus( post.status );
-				setSavedStatus( post.status );
 				setPostLink( post.link );
 				setSlug( post.slug || '' );
 				if ( ! postId ) {
 					setPostId( post.id );
 					window.history.replaceState( null, '', edEditor.postsListUrl.replace( 'page=ed-posts', 'page=ed-editor' ) + '&post_id=' + post.id );
 				}
-				return post;
+				if ( opts.notify && post.status === 'publish' ) {
+					showToast( wasPublished ? 'Post updated' : 'Post published', post.link );
+				}
+				return saveMetaBoxFields( post.id ).then( () => post );
 			} ).catch( ( err ) => { setSaving( false ); window.alert( 'Save failed: ' + ( err.message || 'unknown error' ) ); throw err; } );
 		};
 
@@ -411,8 +499,16 @@
 		const [ slugDraft, setSlugDraft ] = useState( '' );
 		const [ savingSlug, setSavingSlug ] = useState( false );
 
-		const onPublish = () => save( status );
-		const publishLabel = status === 'publish' && savedStatus === 'publish' ? 'Update' : STATUS_SAVE_LABELS[ status ];
+		const isPublished = status === 'publish';
+		const onPublish = () => save( 'publish', { notify: true } );
+		const onSaveDraft = () => save( 'draft' );
+		const onUnpublish = () => save( 'draft' );
+		const onDelete = () => {
+			if ( ! window.confirm( 'Move this post to trash?' ) ) return;
+			apiFetch( { path: '/wp/v2/posts/' + postId, method: 'DELETE' } )
+				.then( () => { window.location.href = edEditor.postsListUrl; } )
+				.catch( ( err ) => window.alert( 'Could not delete post: ' + ( err.message || 'unknown error' ) ) );
+		};
 
 		const onSlugEditStart = () => { setSlugDraft( slug ); setEditingSlug( true ); };
 		const onSlugCancel = () => setEditingSlug( false );
@@ -487,6 +583,16 @@
 		} ) );
 
 		return h( Fragment, {},
+			toast && h( 'div', { className: 'ed-toast', role: 'status' },
+				h( Icon, { path: CHECK_ICON, size: 16 } ),
+				h( 'span', { className: 'ed-toast-message' }, toast.message ),
+				toast.link && h( 'button', {
+					className: 'ed-btn ed-btn-secondary ed-toast-view',
+					onClick: () => window.open( toast.link, '_blank' ),
+				}, 'View' ),
+				h( 'button', { className: 'ed-toast-close', onClick: () => setToast( null ), 'aria-label': 'Dismiss' }, '×' )
+			),
+
 			h( 'a', { className: 'ed-back-link', href: edEditor.postsListUrl }, '← Back to Posts' ),
 
 			h( 'div', { className: 'ed-editor-toolbar' },
@@ -507,14 +613,13 @@
 					)
 				),
 				h( 'div', { className: 'ed-spacer' } ),
-				h( 'div', { className: 'ed-field' },
-					h( 'label', {}, 'Status:' ),
-					h( 'select', { className: 'ed-input ed-status-select', value: status, onChange: ( e ) => setStatus( e.target.value ) },
-						STATUS_OPTIONS.map( ( o ) => h( 'option', { key: o.value, value: o.value }, o.label ) )
+				isPublished
+					? h( Fragment, {},
+						h( 'button', { className: 'ed-btn ed-btn-text ed-btn-text-danger', onClick: onDelete, disabled: saving }, 'Delete' ),
+						h( 'button', { className: 'ed-btn ed-btn-text', onClick: onUnpublish, disabled: saving }, 'Unpublish' )
 					)
-				),
-				status !== 'publish' && h( 'button', { className: 'ed-btn ed-btn-secondary', onClick: onPreview, disabled: saving }, 'Preview' ),
-				h( 'button', { className: 'ed-btn ed-btn-primary', onClick: onPublish, disabled: saving }, publishLabel )
+					: h( 'button', { className: 'ed-btn ed-btn-text', onClick: onSaveDraft, disabled: saving }, 'Save Draft' ),
+				h( 'button', { className: 'ed-btn ed-btn-primary', onClick: onPublish, disabled: saving }, isPublished ? 'Update' : 'Publish' )
 			),
 
 			postId && postLink && h( 'div', { className: 'ed-post-link-row' },
@@ -534,13 +639,24 @@
 						h( 'a', { className: 'ed-post-link-url', href: postLink, target: '_blank', rel: 'noopener noreferrer' }, postLink ),
 						h( 'button', { className: 'ed-btn ed-btn-icon', title: 'Edit permalink', onClick: onSlugEditStart }, h( Icon, { path: EDIT_ICON, size: 14 } ) )
 					),
-				status === 'publish' && h( 'button', { className: 'ed-btn ed-btn-secondary', onClick: () => window.open( postLink, '_blank' ) }, 'View' ),
-				h( 'button', { className: 'ed-btn ed-btn-secondary', onClick: onCopyLink }, copied ? 'Copied!' : 'Copy' )
+				h( 'button', { className: 'ed-btn ed-btn-secondary', onClick: onPreview, disabled: saving }, h( Icon, { path: EYE_ICON, size: 14 } ), 'Preview' ),
+				h( 'button', { className: 'ed-btn ed-btn-secondary', onClick: onCopyLink }, h( Icon, { path: copied ? CHECK_ICON : COPY_ICON, size: 14 } ), copied ? 'Copied!' : 'Copy' )
 			),
 
-			h( 'input', {
-				type: 'text', className: 'ed-title-input', placeholder: 'Add title',
-				value: title, onChange: ( e ) => setTitle( e.target.value ),
+			h( 'div', {
+				ref: titleRef, className: 'ed-title-input', 'data-placeholder': 'Add title',
+				contentEditable: true, suppressContentEditableWarning: true,
+				onInput: ( e ) => setTitle( e.target.textContent ),
+				onKeyDown: ( e ) => {
+					if ( e.key === 'Enter' ) {
+						e.preventDefault();
+						if ( contentRef.current ) contentRef.current.focus();
+					}
+				},
+				onPaste: ( e ) => {
+					e.preventDefault();
+					document.execCommand( 'insertText', false, ( e.clipboardData || window.clipboardData ).getData( 'text/plain' ) );
+				},
 			} ),
 
 			h( 'div', {
@@ -578,6 +694,7 @@
 				metaTitle, onMetaTitleChange: setMetaTitle,
 				metaDesc, onMetaDescChange: setMetaDesc,
 				focusKw, onFocusKwChange: setFocusKw,
+				postId, registerCollector,
 			} )
 		);
 	}

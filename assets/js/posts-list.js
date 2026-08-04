@@ -41,9 +41,10 @@
 		edit: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
 		preview: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
 		trash: '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+		restore: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
 	};
 
-	function PostRow( { post, onTrash } ) {
+	function PostRow( { post, isTrash, onTrash, onRestore, onDeleteForever } ) {
 		const isDraft = post.status !== 'publish';
 		const thumb = post._embedded &&
 			post._embedded[ 'wp:featuredmedia' ] &&
@@ -58,7 +59,7 @@
 			),
 			h( 'div', { className: 'ed-post-main' },
 				h( 'div', { className: 'ed-post-tags' },
-					h( 'span', { className: 'ed-tag ' + ( isDraft ? 'ed-tag-neutral' : 'ed-tag-accent' ) }, isDraft ? 'Draft' : 'Published' ),
+					h( 'span', { className: 'ed-tag ' + ( isTrash ? 'ed-tag-neutral' : ( isDraft ? 'ed-tag-neutral' : 'ed-tag-accent' ) ) }, isTrash ? 'Deleted' : ( isDraft ? 'Draft' : 'Published' ) ),
 					h( 'span', { className: 'ed-tag ed-tag-neutral' }, categoryNames( post ) )
 				),
 				h( 'div', { className: 'ed-post-title' }, post.title.rendered || '(no title)' ),
@@ -69,12 +70,25 @@
 				)
 			),
 			h( 'div', { className: 'ed-post-actions' },
-				h( 'a', { className: 'ed-btn ed-btn-icon', href: editHref, title: 'Edit', onClick: ( e ) => e.stopPropagation() }, h( Icon, { path: ICONS.edit } ) ),
-				h( 'a', { className: 'ed-btn ed-btn-icon', href: post.link, target: '_blank', rel: 'noreferrer', title: 'Preview', onClick: ( e ) => e.stopPropagation() }, h( Icon, { path: ICONS.preview } ) ),
-				h( 'button', {
-					className: 'ed-btn ed-btn-icon', title: 'Move to trash',
-					onClick: ( e ) => { e.stopPropagation(); onTrash( post.id ); },
-				}, h( Icon, { path: ICONS.trash } ) )
+				isTrash
+					? [
+						h( 'button', {
+							key: 'restore', className: 'ed-btn ed-btn-icon', title: 'Restore',
+							onClick: ( e ) => { e.stopPropagation(); onRestore( post.id ); },
+						}, h( Icon, { path: ICONS.restore } ) ),
+						h( 'button', {
+							key: 'delete', className: 'ed-btn ed-btn-icon', title: 'Delete permanently',
+							onClick: ( e ) => { e.stopPropagation(); onDeleteForever( post.id ); },
+						}, h( Icon, { path: ICONS.trash } ) ),
+					]
+					: [
+						h( 'a', { key: 'edit', className: 'ed-btn ed-btn-icon', href: editHref, title: 'Edit', onClick: ( e ) => e.stopPropagation() }, h( Icon, { path: ICONS.edit } ) ),
+						h( 'a', { key: 'preview', className: 'ed-btn ed-btn-icon', href: post.link, target: '_blank', rel: 'noreferrer', title: 'Preview', onClick: ( e ) => e.stopPropagation() }, h( Icon, { path: ICONS.preview } ) ),
+						h( 'button', {
+							key: 'trash', className: 'ed-btn ed-btn-icon', title: 'Move to trash',
+							onClick: ( e ) => { e.stopPropagation(); onTrash( post.id ); },
+						}, h( Icon, { path: ICONS.trash } ) ),
+					]
 			)
 		);
 	}
@@ -84,36 +98,54 @@
 		const [ loading, setLoading ] = useState( true );
 		const [ search, setSearch ] = useState( '' );
 		const [ filter, setFilter ] = useState( 'all' );
+		const [ category, setCategory ] = useState( 0 );
+		const [ author, setAuthor ] = useState( 0 );
+		const [ showTrash, setShowTrash ] = useState( false );
 		const debounceRef = useRef( null );
 
-		const load = useCallback( ( q, f ) => {
+		const load = useCallback( ( q, f, cat, auth, trash ) => {
 			setLoading( true );
 			const params = new URLSearchParams( {
 				context: 'edit',
-				status: STATUS_QUERY[ f ],
+				status: trash ? 'trash' : STATUS_QUERY[ f ],
 				per_page: '50',
 				orderby: 'date',
 				order: 'desc',
 				_embed: '1',
 			} );
 			if ( q ) params.set( 'search', q );
+			if ( cat ) params.set( 'categories', cat );
+			if ( auth ) params.set( 'author', auth );
 			apiFetch( { path: '/wp/v2/posts?' + params.toString() } )
 				.then( ( result ) => setPosts( result ) )
 				.catch( () => setPosts( [] ) )
 				.finally( () => setLoading( false ) );
 		}, [] );
 
-		useEffect( () => { load( search, filter ); }, [ filter ] );
+		useEffect( () => { load( search, filter, category, author, showTrash ); }, [ filter, category, author, showTrash ] );
 
 		const onSearchChange = ( e ) => {
 			const value = e.target.value;
 			setSearch( value );
 			clearTimeout( debounceRef.current );
-			debounceRef.current = setTimeout( () => load( value, filter ), 300 );
+			debounceRef.current = setTimeout( () => load( value, filter, category, author, showTrash ), 300 );
 		};
 
 		const onTrash = ( id ) => {
 			apiFetch( { path: '/wp/v2/posts/' + id, method: 'DELETE' } ).then( () => {
+				setPosts( ( prev ) => prev.filter( ( p ) => p.id !== id ) );
+			} );
+		};
+
+		const onRestore = ( id ) => {
+			apiFetch( { path: '/wp/v2/posts/' + id, method: 'POST', data: { status: 'draft' } } ).then( () => {
+				setPosts( ( prev ) => prev.filter( ( p ) => p.id !== id ) );
+			} );
+		};
+
+		const onDeleteForever = ( id ) => {
+			if ( ! window.confirm( 'Permanently delete this post? This cannot be undone.' ) ) return;
+			apiFetch( { path: '/wp/v2/posts/' + id + '?force=true', method: 'DELETE' } ).then( () => {
 				setPosts( ( prev ) => prev.filter( ( p ) => p.id !== id ) );
 			} );
 		};
@@ -129,7 +161,21 @@
 					className: 'ed-input', type: 'text', placeholder: 'Search posts…',
 					value: search, onChange: onSearchChange,
 				} ),
-				h( 'div', { className: 'ed-seg' },
+				h( 'select', {
+					className: 'ed-input', value: category,
+					onChange: ( e ) => setCategory( parseInt( e.target.value, 10 ) ),
+				},
+					h( 'option', { value: 0 }, 'All categories' ),
+					edPostsList.categories.map( ( c ) => h( 'option', { key: c.id, value: c.id }, c.name ) )
+				),
+				h( 'select', {
+					className: 'ed-input', value: author,
+					onChange: ( e ) => setAuthor( parseInt( e.target.value, 10 ) ),
+				},
+					h( 'option', { value: 0 }, 'All authors' ),
+					edPostsList.authors.map( ( a ) => h( 'option', { key: a.id, value: a.id }, a.name ) )
+				),
+				! showTrash && h( 'div', { className: 'ed-seg' },
 					[ [ 'all', 'All' ], [ 'published', 'Published' ], [ 'draft', 'Draft' ] ].map( ( [ key, label ] ) =>
 						h( 'label', { key, className: 'ed-seg-opt' },
 							h( 'input', {
@@ -139,14 +185,18 @@
 							label
 						)
 					)
-				)
+				),
+				h( 'button', {
+					type: 'button', className: 'ed-btn ed-btn-text' + ( showTrash ? '' : ' ed-btn-text-danger' ) + ' ed-posts-trash-select',
+					onClick: () => setShowTrash( ! showTrash ),
+				}, showTrash ? 'All posts' : 'Deleted posts' )
 			),
 			h( 'div', { className: 'ed-hr', style: { margin: '0 0 4px' } } ),
 			loading
 				? h( 'div', { className: 'ed-posts-empty' }, 'Loading…' )
 				: posts.length
-					? posts.map( ( post ) => h( PostRow, { key: post.id, post, onTrash } ) )
-					: h( 'div', { className: 'ed-posts-empty' }, 'No posts found.' )
+					? posts.map( ( post ) => h( PostRow, { key: post.id, post, isTrash: showTrash, onTrash, onRestore, onDeleteForever } ) )
+					: h( 'div', { className: 'ed-posts-empty' }, showTrash ? 'No deleted posts.' : 'No posts found.' )
 		);
 	}
 
