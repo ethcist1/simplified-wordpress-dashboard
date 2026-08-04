@@ -1,0 +1,84 @@
+/* Hide the native admin menu; our sidebar replaces it. */
+body.ed-modern #adminmenumain,
+body.ed-modern #adminmenuback,
+body.ed-modern #adminmenuwrap,
+body.ed-modern #collapse-menu {
+	display: none !important;
+}
+
+/* Hide the native admin toolbar entirely; our sidebar has its own
+   "switch to classic view" link, so nothing is lost. Classic view keeps
+   the toolbar (with its "switch to Simplified Dashboard" link) intact. */
+body.ed-modern #wpadminbar { display: none !important; }
+html:has(body.ed-modern) { padding-top: 0 !important; }
+body.ed-modern #wpcontent,
+body.ed-modern #wpfooter {
+	margin-left: var(--ed-sidebar-width) !important;
+}
+body.ed-modern.folded #wpcontent { margin-left: var(--ed-sidebar-width) !important; }
+
+body.ed-modern {
+	background: var(--ed-bg);
+	font-family: var(--ed-font-body);
+}
+body.ed-modern #wpcontent { background: var(--ed-bg); color: var(--ed-text); }
+body.ed-modern h1, body.ed-modern h2, body.ed-modern h3, body.ed-modern h4 {
+	font-family: var(--ed-font-heading); font-weight: var(--ed-font-heading-weight);
+}
+
+/* — sidebar shell — */
+#ed-sidebar {
+	position: fixed; top: 0; left: 0; bottom: 0; width: var(--ed-sidebar-width);
+	display: flex; flex-direction: column; gap: var(--ed-space-4); padding: var(--ed-space-4);
+	background: var(--ed-surface); border-right: 1px solid var(--ed-divider);
+	overflow-y: auto; z-index: 9990; font-family: var(--ed-font-body); box-sizing: border-box;
+}
+.ed-sidebar-brand {
+	font-family: var(--ed-font-heading); font-weight: var(--ed-font-heading-weight);
+	font-size: 19px; padding: var(--ed-space-2) var(--ed-space-2) var(--ed-space-1);
+}
+.ed-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.ed-nav-label {
+	font-size: 11px; color: color-mix(in srgb, var(--ed-text) 48%, transparent);
+	padding: 0 10px; margin-bottom: 2px;
+}
+.ed-nav-link {
+	display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--ed-radius-md);
+	text-decoration: none; color: var(--ed-text); font-size: 14px;
+}
+.ed-nav-link svg { flex: none; }
+.ed-nav-link:hover { background: color-mix(in srgb, var(--ed-text) 6%, transparent); color: var(--ed-text); }
+.ed-nav-link.is-active { color: var(--ed-accent); background: color-mix(in srgb, var(--ed-accent) 10%, transparent); }
+.ed-nav-link-muted { opacity: .75; font-size: 13px; padding: 6px 10px; }
+.ed-nav-link-muted:hover { opacity: 1; color: var(--ed-accent); background: transparent; }
+
+/* — collapsible "More" group — */
+.ed-nav-more-toggle {
+	display: flex; align-items: center; justify-content: space-between; gap: 4px;
+	cursor: pointer; user-select: none; border-radius: var(--ed-radius-md);
+	padding: 4px 10px;
+}
+.ed-nav-more-toggle::-webkit-details-marker { display: none; }
+.ed-nav-more-toggle:hover { color: var(--ed-text); background: color-mix(in srgb, var(--ed-text) 6%, transparent); }
+.ed-nav-more-toggle svg { flex: none; transition: transform .15s ease; }
+.ed-nav-more[open] > .ed-nav-more-toggle svg { transform: rotate(90deg); }
+.ed-nav-more > .ed-nav-link { margin-top: 2px; }
+
+.ed-sidebar-user {
+	display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+	text-decoration: none; color: inherit; border-radius: var(--ed-radius-md);
+}
+.ed-sidebar-user:hover { background: color-mix(in srgb, var(--ed-text) 6%, transparent); color: inherit; }
+.ed-avatar {
+	width: 32px; height: 32px; flex: none; border-radius: 50%;
+	background: var(--ed-accent-200); color: var(--ed-accent-800);
+	display: flex; align-items: center; justify-content: center;
+	font-family: var(--ed-font-heading); font-weight: var(--ed-font-heading-weight); font-size: 13px;
+}
+.ed-user-name { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.ed-user-role { font-size: 11px; color: color-mix(in srgb, var(--ed-text) 55%, transparent); line-height: 1.25; }
+
+/* Full-bleed custom pages (Posts list / Editor) hide WP's default page chrome padding. */
+body.ed-modern.ed-full-page #wpbody-content { padding-bottom: 0; }
+body.ed-modern.ed-full-page #wpbody-content > .notice,
+body.ed-modern.ed-full-page #wpbody-content > .wrap > .notice { margin-left: 0; }

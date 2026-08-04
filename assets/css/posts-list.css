@@ -1,0 +1,33 @@
+#ed-posts-root { max-width: 980px; margin: 0 auto; padding: var(--ed-space-8); }
+
+.ed-posts-header { display: flex; align-items: baseline; gap: var(--ed-space-3); margin-bottom: var(--ed-space-6); }
+.ed-posts-header h1 { margin: 0; }
+.ed-posts-count { color: color-mix(in srgb, var(--ed-text) 50%, transparent); font-size: 14px; }
+.ed-posts-header .ed-btn { margin-left: auto; }
+
+.ed-posts-toolbar { display: flex; align-items: center; gap: var(--ed-space-3); margin-bottom: var(--ed-space-4); flex-wrap: wrap; }
+.ed-posts-toolbar .ed-input { max-width: 300px; }
+
+.ed-post-row {
+	display: flex; align-items: center; gap: var(--ed-space-3); padding: var(--ed-space-3) var(--ed-space-2);
+	border-bottom: 1px solid var(--ed-divider); cursor: pointer; text-decoration: none; color: inherit;
+}
+.ed-post-row:hover { background: color-mix(in srgb, var(--ed-text) 3%, transparent); }
+.ed-post-thumb {
+	width: 56px; height: 56px; flex: none; border-radius: var(--ed-radius-lg);
+	background: var(--ed-neutral-200); border: 1px solid var(--ed-divider);
+	display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.ed-post-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ed-post-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ed-post-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ed-post-title {
+	font-family: var(--ed-font-heading); font-weight: var(--ed-font-heading-weight); font-size: 16px;
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ed-post-meta { font-size: 12px; color: color-mix(in srgb, var(--ed-text) 50%, transparent); }
+.ed-post-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.ed-post-actions .ed-btn-icon { opacity: .4; }
+.ed-post-actions .ed-btn-icon:hover { opacity: 1; background: color-mix(in srgb, var(--ed-text) 7%, transparent); }
+
+.ed-posts-empty { padding: var(--ed-space-8) 0; text-align: center; color: color-mix(in srgb, var(--ed-text) 50%, transparent); }
